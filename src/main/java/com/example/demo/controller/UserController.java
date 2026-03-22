@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.dto.UserRegisterRequest;
 import com.example.demo.dto.UserResponse;
+import com.example.demo.mapper.UserMapper;
 import com.example.demo.model.User;
 import com.example.demo.service.UserService;
 
@@ -23,39 +24,33 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/users")
 public class UserController {
+    private final UserMapper userMapper;
     private final UserService userService;
 
-    public UserController(UserService userService) {
+    public UserController(UserMapper userMapper, UserService userService) {
+        this.userMapper = userMapper;
         this.userService = userService;
     }
 
     @PostMapping("/register")
     public ResponseEntity<UserResponse> registerUser(@Valid @RequestBody UserRegisterRequest request) {
-        User user = new User();
-        user.setName(request.getName());
-        user.setEmail(request.getEmail());
+        User user = userMapper.toUser(request);
         User newUser = userService.saveUser(user);
-        return ResponseEntity.ok(toUserResponse(newUser));
+        return ResponseEntity.ok(userMapper.toUserResponse(newUser));
     }
 
     @GetMapping
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         List<User> users = userService.getAllUsers();
-        List<UserResponse> responses = users.stream()
-                .map(this::toUserResponse)
-                .toList();
+        List<UserResponse> responses = userMapper.toUserResponses(users);
         return ResponseEntity.ok(responses);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUser(@PathVariable int id) {
         Optional<User> user = userService.getUser(id);
-        return user.map(this::toUserResponse)
+        return user.map(userMapper::toUserResponse)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-    }
-
-    private UserResponse toUserResponse(User user) {
-        return new UserResponse(user.getId(), user.getName(), user.getEmail());
     }
 }

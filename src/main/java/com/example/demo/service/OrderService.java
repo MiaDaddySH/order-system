@@ -20,8 +20,8 @@ public class OrderService {
 
         Order order = new Order(
                 newId,
-                request.getProduct(),
-                request.getQuantity(),
+                request.product(),
+                request.quantity(),
                 "created"
         );
 
