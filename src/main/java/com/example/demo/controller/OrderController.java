@@ -2,6 +2,7 @@ package com.example.demo.controller;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.dto.CreateOrderRequest;
 import com.example.demo.dto.OrderResponse;
@@ -9,7 +10,10 @@ import com.example.demo.mapper.OrderMapper;
 import com.example.demo.model.Order;
 import com.example.demo.service.OrderService;
 
+import jakarta.validation.Valid;
+
 import java.util.List;
+import org.springframework.http.HttpStatus;
 
 @RestController
 @RequestMapping("/orders")
@@ -23,7 +27,7 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<OrderResponse> createOrder(@RequestBody CreateOrderRequest request) {
+    public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {
         Order order = orderService.createOrder(request);
         return ResponseEntity.ok(orderMapper.toOrderResponse(order));
     }
@@ -36,7 +40,10 @@ public class OrderController {
 
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponse> getOrder(@PathVariable int id) {
-        return ResponseEntity.of(orderService.getOrder(id).map(orderMapper::toOrderResponse));
+        return orderService.getOrder(id)
+                .map(orderMapper::toOrderResponse)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
     }
 
     @DeleteMapping("/{id}")
@@ -46,6 +53,6 @@ public class OrderController {
         if (deleted) {
             return "Deleted order " + id;
         }
-        return "Order not found: " + id;
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
     }
 }

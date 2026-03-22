@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import com.example.demo.exception.GlobalExceptionHandler;
 import com.example.demo.dto.OrderResponse;
 import com.example.demo.mapper.OrderMapper;
 import com.example.demo.model.Order;
@@ -39,7 +40,9 @@ class OrderControllerApiTest {
             }
         };
         OrderController orderController = new OrderController(orderMapper, new OrderService());
-        mockMvc = MockMvcBuilders.standaloneSetup(orderController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(orderController)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .build();
     }
 
     @Test
@@ -65,6 +68,34 @@ class OrderControllerApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createOrderReturnsBadRequestWhenRequestIsInvalid() throws Exception {
+        mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "product": "",
+                                  "quantity": 1
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Product is required"));
+    }
+
+    @Test
+    void createOrderReturnsBadRequestWhenQuantityIsNotPositive() throws Exception {
+        mockMvc.perform(post("/orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "product": "Book",
+                                  "quantity": 0
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Quantity must be positive"));
     }
 
     @Test
@@ -96,7 +127,8 @@ class OrderControllerApiTest {
     @Test
     void getOrderReturnsNotFoundWhenOrderDoesNotExist() throws Exception {
         mockMvc.perform(get("/orders/999999"))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Order not found"));
     }
 
     @Test
@@ -116,9 +148,9 @@ class OrderControllerApiTest {
     }
 
     @Test
-    void deleteOrderReturnsNotFoundMessageWhenOrderMissing() throws Exception {
+    void deleteOrderReturnsNotFoundWhenOrderMissing() throws Exception {
         mockMvc.perform(delete("/orders/999999"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Order not found: 999999"));
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Order not found"));
     }
 }
