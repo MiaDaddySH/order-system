@@ -13,8 +13,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.example.demo.models.User;
-import com.example.demo.services.UserService;
+import com.example.demo.dto.UserRegisterRequest;
+import com.example.demo.dto.UserResponse;
+import com.example.demo.model.User;
+import com.example.demo.service.UserService;
 
 import jakarta.validation.Valid;
 
@@ -28,21 +30,32 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<User> registerUser(@Valid @RequestBody User user) {
+    public ResponseEntity<UserResponse> registerUser(@Valid @RequestBody UserRegisterRequest request) {
+        User user = new User();
+        user.setName(request.getName());
+        user.setEmail(request.getEmail());
         User newUser = userService.saveUser(user);
-        return ResponseEntity.ok(newUser);
+        return ResponseEntity.ok(toUserResponse(newUser));
     }
 
     @GetMapping
-    public ResponseEntity<List<User>> getAllUsers() {
+    public ResponseEntity<List<UserResponse>> getAllUsers() {
         List<User> users = userService.getAllUsers();
-        return ResponseEntity.ok(users);
+        List<UserResponse> responses = users.stream()
+                .map(this::toUserResponse)
+                .toList();
+        return ResponseEntity.ok(responses);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUser(@PathVariable int id) {
+    public ResponseEntity<UserResponse> getUser(@PathVariable int id) {
         Optional<User> user = userService.getUser(id);
-        return user.map(ResponseEntity::ok)
+        return user.map(this::toUserResponse)
+                .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
+    private UserResponse toUserResponse(User user) {
+        return new UserResponse(user.getId(), user.getName(), user.getEmail());
     }
 }

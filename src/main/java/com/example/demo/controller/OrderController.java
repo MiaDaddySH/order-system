@@ -3,9 +3,9 @@ package com.example.demo.controller;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.example.demo.models.Order;
-import com.example.demo.services.CreateOrderRequest;
-import com.example.demo.services.OrderService;
+import com.example.demo.dto.CreateOrderRequest;
+import com.example.demo.model.Order;
+import com.example.demo.service.OrderService;
 
 import java.util.List;
 

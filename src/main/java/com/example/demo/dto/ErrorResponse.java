@@ -1,4 +1,4 @@
-package com.example.demo.services;
+package com.example.demo.dto;
 
 public class ErrorResponse {
     private String message;

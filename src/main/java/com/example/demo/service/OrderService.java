@@ -1,8 +1,9 @@
-package com.example.demo.services;
+package com.example.demo.service;
 
 import org.springframework.stereotype.Service;
 
-import com.example.demo.models.Order;
+import com.example.demo.dto.CreateOrderRequest;
+import com.example.demo.model.Order;
 
 import java.util.List;
 import java.util.Optional;
