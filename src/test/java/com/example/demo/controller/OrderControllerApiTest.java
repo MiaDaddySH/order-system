@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -55,7 +56,8 @@ class OrderControllerApiTest {
                                   "quantity": 2
                                 }
                                 """))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "/orders/1001"))
                 .andExpect(jsonPath("$.id", greaterThanOrEqualTo(1001)))
                 .andExpect(jsonPath("$.product").value("Book"))
                 .andExpect(jsonPath("$.quantity").value(2))

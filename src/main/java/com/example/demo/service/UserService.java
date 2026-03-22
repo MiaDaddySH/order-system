@@ -1,6 +1,8 @@
 package com.example.demo.service;
 
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.model.User;
 
@@ -28,6 +30,10 @@ public class UserService {
         return users.stream()
                 .filter(user -> user.getId() == id)
                 .findFirst();
+    }
+
+    public User getUserOrThrow(int id) {
+        return getUser(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
     public User saveUser(User user) {

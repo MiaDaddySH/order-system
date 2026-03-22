@@ -1,9 +1,8 @@
 package com.example.demo.controller;
 
 import java.util.List;
-import java.util.Optional;
+import java.net.URI;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,7 +10,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.dto.UserRegisterRequest;
 import com.example.demo.dto.UserResponse;
@@ -36,7 +34,8 @@ public class UserController {
     public ResponseEntity<UserResponse> registerUser(@Valid @RequestBody UserRegisterRequest request) {
         User user = userMapper.toUser(request);
         User newUser = userService.saveUser(user);
-        return ResponseEntity.ok(userMapper.toUserResponse(newUser));
+        return ResponseEntity.created(URI.create("/users/" + newUser.getId()))
+                .body(userMapper.toUserResponse(newUser));
     }
 
     @GetMapping
@@ -48,9 +47,7 @@ public class UserController {
 
     @GetMapping("/{id}")
     public ResponseEntity<UserResponse> getUser(@PathVariable int id) {
-        Optional<User> user = userService.getUser(id);
-        return user.map(userMapper::toUserResponse)
-                .map(ResponseEntity::ok)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        User user = userService.getUserOrThrow(id);
+        return ResponseEntity.ok(userMapper.toUserResponse(user));
     }
 }

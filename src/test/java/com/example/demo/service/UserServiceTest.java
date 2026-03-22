@@ -1,8 +1,10 @@
 package com.example.demo.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.demo.model.User;
 
@@ -26,5 +28,27 @@ class UserServiceTest {
         assertEquals(1002, savedSecond.getId());
         assertEquals("Alice", savedFirst.getName());
         assertEquals("bob@example.com", savedSecond.getEmail());
+    }
+
+    @Test
+    void getUserOrThrowReturnsUserWhenUserExists() {
+        UserService userService = new UserService();
+        User user = new User();
+        user.setName("Alice");
+        user.setEmail("alice@example.com");
+        User savedUser = userService.saveUser(user);
+
+        User foundUser = userService.getUserOrThrow(savedUser.getId());
+
+        assertEquals(savedUser.getId(), foundUser.getId());
+    }
+
+    @Test
+    void getUserOrThrowThrowsWhenUserMissing() {
+        UserService userService = new UserService();
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> userService.getUserOrThrow(999999));
+
+        assertEquals("User not found", ex.getReason());
     }
 }

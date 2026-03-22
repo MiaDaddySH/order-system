@@ -3,11 +3,12 @@ package com.example.demo.mapper;
 import java.util.List;
 
 import org.mapstruct.Mapper;
+import org.mapstruct.ReportingPolicy;
 
 import com.example.demo.dto.OrderResponse;
 import com.example.demo.model.Order;
 
-@Mapper(componentModel = "spring")
+@Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface OrderMapper {
     OrderResponse toOrderResponse(Order order);
 

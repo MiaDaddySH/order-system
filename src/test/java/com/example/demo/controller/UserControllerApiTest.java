@@ -3,6 +3,7 @@ package com.example.demo.controller;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -62,7 +63,8 @@ class UserControllerApiTest {
                                   "email": "alice@example.com"
                                 }
                                 """))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", "/users/1001"))
                 .andExpect(jsonPath("$.id", greaterThanOrEqualTo(1001)))
                 .andExpect(jsonPath("$.name").value("Alice"))
                 .andExpect(jsonPath("$.email").value("alice@example.com"));

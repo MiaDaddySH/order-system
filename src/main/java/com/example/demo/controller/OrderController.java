@@ -12,6 +12,7 @@ import com.example.demo.service.OrderService;
 
 import jakarta.validation.Valid;
 
+import java.net.URI;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 
@@ -29,7 +30,8 @@ public class OrderController {
     @PostMapping
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {
         Order order = orderService.createOrder(request);
-        return ResponseEntity.ok(orderMapper.toOrderResponse(order));
+        return ResponseEntity.created(URI.create("/orders/" + order.getId()))
+                .body(orderMapper.toOrderResponse(order));
     }
 
     @GetMapping
