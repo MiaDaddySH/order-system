@@ -113,4 +113,27 @@ class UserServiceTest {
 
         assertEquals("User not found", ex.getReason());
     }
+
+    @Test
+    void authenticateReturnsUserWhenCredentialsAreValid() {
+        User user = new User();
+        user.setEmail("alice@example.com");
+        userService.saveUser(user, "password123");
+
+        User authenticated = userService.authenticate("alice@example.com", "password123");
+
+        assertEquals("alice@example.com", authenticated.getEmail());
+    }
+
+    @Test
+    void authenticateThrowsWhenCredentialsAreInvalid() {
+        User user = new User();
+        user.setEmail("alice@example.com");
+        userService.saveUser(user, "password123");
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> userService.authenticate("alice@example.com", "wrong-password"));
+
+        assertEquals("Invalid email or password", ex.getReason());
+    }
 }

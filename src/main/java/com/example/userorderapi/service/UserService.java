@@ -45,6 +45,15 @@ public class UserService {
         return createUser(user, rawPassword);
     }
 
+    public User authenticate(String email, String rawPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
+        if (user.getPasswordHash() == null || !passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+        }
+        return user;
+    }
+
     public User updateUser(int id, User user) {
         User existingUser = getUserOrThrow(id);
         existingUser.setName(user.getName());
