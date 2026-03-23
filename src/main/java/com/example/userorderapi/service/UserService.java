@@ -57,8 +57,26 @@ public class UserService {
     public User updateUser(int id, User user) {
         User existingUser = getUserOrThrow(id);
         existingUser.setName(user.getName());
-        existingUser.setEmail(user.getEmail());
+        existingUser.setAddress(user.getAddress());
+        existingUser.setPhone(user.getPhone());
         return userRepository.save(existingUser);
+    }
+
+    public User getCurrentUserProfile(int userId) {
+        return getUserOrThrow(userId);
+    }
+
+    public User updateCurrentUserProfile(int userId, User user) {
+        return updateUser(userId, user);
+    }
+
+    public void changeCurrentUserPassword(int userId, String oldPassword, String newPassword) {
+        User existingUser = getUserOrThrow(userId);
+        if (existingUser.getPasswordHash() == null || !passwordEncoder.matches(oldPassword, existingUser.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Old password is incorrect");
+        }
+        existingUser.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(existingUser);
     }
 
     public void deleteUser(int id) {

@@ -79,7 +79,7 @@ class UserControllerApiTest {
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Password is required"));
+                .andExpect(jsonPath("$.message").value("Password must be at least 8 characters"));
     }
 
     @Test
@@ -122,13 +122,14 @@ class UserControllerApiTest {
                         .content("""
                                 {
                                   "name": "Alice Updated",
-                                  "email": "alice.updated@example.com"
+                                  "address": "Shanghai",
+                                  "phone": "13800000000"
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(userId))
                 .andExpect(jsonPath("$.name").value("Alice Updated"))
-                .andExpect(jsonPath("$.email").value("alice.updated@example.com"));
+                .andExpect(jsonPath("$.email").value("alice@example.com"));
     }
 
     @Test
@@ -254,6 +255,128 @@ class UserControllerApiTest {
     void getUserReturnsUnauthorizedWhenTokenMissing() throws Exception {
         mockMvc.perform(get("/users/1"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void getMyProfileReturnsCurrentUserInfo() throws Exception {
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+        String token = loginAndGetToken("alice@example.com", "password123");
+
+        mockMvc.perform(get("/users/me")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value("alice@example.com"))
+                .andExpect(jsonPath("$.name").value(""));
+    }
+
+    @Test
+    void updateMyProfileUpdatesOnlyProfileFields() throws Exception {
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+        String token = loginAndGetToken("alice@example.com", "password123");
+
+        mockMvc.perform(put("/users/me")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name": "Alice Profile",
+                                  "address": "Shenzhen",
+                                  "phone": "13900000000"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Alice Profile"))
+                .andExpect(jsonPath("$.email").value("alice@example.com"))
+                .andExpect(jsonPath("$.address").value("Shenzhen"))
+                .andExpect(jsonPath("$.phone").value("13900000000"));
+    }
+
+    @Test
+    void changeMyPasswordUpdatesLoginPassword() throws Exception {
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+        String token = loginAndGetToken("alice@example.com", "password123");
+
+        mockMvc.perform(put("/users/me/password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "oldPassword": "password123",
+                                  "newPassword": "newpassword123"
+                                }
+                                """))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(post("/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(post("/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "newpassword123"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.token").isNotEmpty());
+    }
+
+    @Test
+    void changeMyPasswordReturnsUnauthorizedWhenOldPasswordInvalid() throws Exception {
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+        String token = loginAndGetToken("alice@example.com", "password123");
+
+        mockMvc.perform(put("/users/me/password")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "oldPassword": "wrong-password",
+                                  "newPassword": "newpassword123"
+                                }
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Old password is incorrect"));
     }
 
     private String loginAndGetToken(String email, String password) throws Exception {

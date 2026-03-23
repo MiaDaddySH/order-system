@@ -4,6 +4,7 @@ import java.util.List;
 import java.net.URI;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -14,12 +15,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.userorderapi.dto.UserRegisterRequest;
+import com.example.userorderapi.dto.UserChangePasswordRequest;
 import com.example.userorderapi.dto.UserLoginRequest;
 import com.example.userorderapi.dto.UserLoginResponse;
+import com.example.userorderapi.dto.UserProfileResponse;
 import com.example.userorderapi.dto.UserResponse;
 import com.example.userorderapi.dto.UserUpdateRequest;
 import com.example.userorderapi.mapper.UserMapper;
 import com.example.userorderapi.model.User;
+import com.example.userorderapi.security.AuthenticatedUser;
 import com.example.userorderapi.service.JwtService;
 import com.example.userorderapi.service.UserService;
 
@@ -79,6 +83,31 @@ public class UserController {
         User user = userMapper.toUser(request);
         User updatedUser = userService.updateUser(id, user);
         return ResponseEntity.ok(userMapper.toUserResponse(updatedUser));
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserProfileResponse> getMyProfile(@AuthenticationPrincipal AuthenticatedUser authenticatedUser) {
+        User user = userService.getCurrentUserProfile(authenticatedUser.userId());
+        return ResponseEntity.ok(userMapper.toUserProfileResponse(user));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<UserProfileResponse> updateMyProfile(
+            @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
+            @Valid @RequestBody UserUpdateRequest request
+    ) {
+        User user = userMapper.toUser(request);
+        User updatedUser = userService.updateCurrentUserProfile(authenticatedUser.userId(), user);
+        return ResponseEntity.ok(userMapper.toUserProfileResponse(updatedUser));
+    }
+
+    @PutMapping("/me/password")
+    public ResponseEntity<Void> changeMyPassword(
+            @AuthenticationPrincipal AuthenticatedUser authenticatedUser,
+            @Valid @RequestBody UserChangePasswordRequest request
+    ) {
+        userService.changeCurrentUserPassword(authenticatedUser.userId(), request.oldPassword(), request.newPassword());
+        return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")

@@ -72,20 +72,24 @@ class UserServiceTest {
 
         User updatePayload = new User();
         updatePayload.setName("Alice Updated");
-        updatePayload.setEmail("alice.updated@example.com");
+        updatePayload.setAddress("Shanghai");
+        updatePayload.setPhone("13800000000");
 
         User updated = userService.updateUser(saved.getId(), updatePayload);
 
         assertEquals(saved.getId(), updated.getId());
         assertEquals("Alice Updated", updated.getName());
-        assertEquals("alice.updated@example.com", updated.getEmail());
+        assertEquals("alice@example.com", updated.getEmail());
+        assertEquals("Shanghai", updated.getAddress());
+        assertEquals("13800000000", updated.getPhone());
     }
 
     @Test
     void updateUserThrowsWhenUserMissing() {
         User payload = new User();
         payload.setName("Nobody");
-        payload.setEmail("nobody@example.com");
+        payload.setAddress("Nowhere");
+        payload.setPhone("000");
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> userService.updateUser(999999, payload));
@@ -135,5 +139,29 @@ class UserServiceTest {
                 () -> userService.authenticate("alice@example.com", "wrong-password"));
 
         assertEquals("Invalid email or password", ex.getReason());
+    }
+
+    @Test
+    void changeCurrentUserPasswordUpdatesPasswordWhenOldPasswordMatches() {
+        User user = new User();
+        user.setEmail("alice@example.com");
+        User saved = userService.saveUser(user, "password123");
+
+        userService.changeCurrentUserPassword(saved.getId(), "password123", "newpassword123");
+
+        User authenticated = userService.authenticate("alice@example.com", "newpassword123");
+        assertEquals(saved.getId(), authenticated.getId());
+    }
+
+    @Test
+    void changeCurrentUserPasswordThrowsWhenOldPasswordInvalid() {
+        User user = new User();
+        user.setEmail("alice@example.com");
+        User saved = userService.saveUser(user, "password123");
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> userService.changeCurrentUserPassword(saved.getId(), "wrong-password", "newpassword123"));
+
+        assertEquals("Old password is incorrect", ex.getReason());
     }
 }
