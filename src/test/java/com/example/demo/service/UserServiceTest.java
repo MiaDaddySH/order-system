@@ -51,4 +51,60 @@ class UserServiceTest {
 
         assertEquals("User not found", ex.getReason());
     }
+
+    @Test
+    void updateUserUpdatesExistingUser() {
+        UserService userService = new UserService();
+        User original = new User();
+        original.setName("Alice");
+        original.setEmail("alice@example.com");
+        User saved = userService.saveUser(original);
+
+        User updatePayload = new User();
+        updatePayload.setName("Alice Updated");
+        updatePayload.setEmail("alice.updated@example.com");
+
+        User updated = userService.updateUser(saved.getId(), updatePayload);
+
+        assertEquals(saved.getId(), updated.getId());
+        assertEquals("Alice Updated", updated.getName());
+        assertEquals("alice.updated@example.com", updated.getEmail());
+    }
+
+    @Test
+    void updateUserThrowsWhenUserMissing() {
+        UserService userService = new UserService();
+        User payload = new User();
+        payload.setName("Nobody");
+        payload.setEmail("nobody@example.com");
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> userService.updateUser(999999, payload));
+
+        assertEquals("User not found", ex.getReason());
+    }
+
+    @Test
+    void deleteUserRemovesExistingUser() {
+        UserService userService = new UserService();
+        User user = new User();
+        user.setName("Alice");
+        user.setEmail("alice@example.com");
+        User saved = userService.saveUser(user);
+
+        userService.deleteUser(saved.getId());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> userService.getUserOrThrow(saved.getId()));
+        assertEquals("User not found", ex.getReason());
+    }
+
+    @Test
+    void deleteUserThrowsWhenUserMissing() {
+        UserService userService = new UserService();
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> userService.deleteUser(999999));
+
+        assertEquals("User not found", ex.getReason());
+    }
 }

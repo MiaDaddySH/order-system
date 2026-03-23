@@ -40,6 +40,20 @@ public class UserService {
         return createUser(user);
     }
 
+    public User updateUser(int id, User user) {
+        User existingUser = getUserOrThrow(id);
+        existingUser.setName(user.getName());
+        existingUser.setEmail(user.getEmail());
+        return existingUser;
+    }
+
+    public void deleteUser(int id) {
+        boolean deleted = users.removeIf(user -> user.getId() == id);
+        if (!deleted) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+    }
+
     public List<User> getAllUsers() {
         return users;
     }
