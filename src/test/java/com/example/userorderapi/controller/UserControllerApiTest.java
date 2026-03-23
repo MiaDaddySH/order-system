@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -154,8 +156,7 @@ class UserControllerApiTest {
 
         mockMvc.perform(get("/users/" + userId)
                         .header("Authorization", "Bearer " + token))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.message").value("User not found"));
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -377,6 +378,72 @@ class UserControllerApiTest {
                                 """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Old password is incorrect"));
+    }
+
+    @Test
+    void changeMyPasswordInvalidatesOldToken() throws Exception {
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+        String oldToken = loginAndGetToken("alice@example.com", "password123");
+
+        mockMvc.perform(put("/users/me/password")
+                        .header("Authorization", "Bearer " + oldToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "oldPassword": "password123",
+                                  "newPassword": "newpassword123"
+                                }
+                                """))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/users/me")
+                        .header("Authorization", "Bearer " + oldToken))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void loginReturnsTooManyRequestsAfterTooManyFailures() throws Exception {
+        String email = "rate-limit-" + UUID.randomUUID() + "@example.com";
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "password123"
+                                }
+                                """.formatted(email)))
+                .andExpect(status().isCreated());
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/users/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {
+                                      "email": "%s",
+                                      "password": "wrong-password"
+                                    }
+                                    """.formatted(email)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        mockMvc.perform(post("/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "wrong-password"
+                                }
+                                """.formatted(email)))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.message").value("Too many login attempts"));
     }
 
     private String loginAndGetToken(String email, String password) throws Exception {

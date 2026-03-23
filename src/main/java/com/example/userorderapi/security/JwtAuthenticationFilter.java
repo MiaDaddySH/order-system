@@ -2,6 +2,7 @@ package com.example.userorderapi.security;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.auth0.jwt.interfaces.DecodedJWT;
+import com.example.userorderapi.model.User;
+import com.example.userorderapi.repository.UserRepository;
 import com.example.userorderapi.service.JwtService;
 
 import jakarta.servlet.FilterChain;
@@ -20,9 +23,11 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserRepository userRepository) {
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -47,7 +52,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
         int userId = Integer.parseInt(decodedJWT.getSubject());
-        String email = decodedJWT.getClaim("email").asString();
+        Optional<User> optionalUser = userRepository.findById(userId);
+        if (optionalUser.isEmpty()) {
+            return;
+        }
+        User user = optionalUser.get();
+        if (!jwtService.isTokenValidForUser(decodedJWT, user.getEmail(), user.getPasswordHash())) {
+            return;
+        }
+        String email = user.getEmail();
         AuthenticatedUser authenticatedUser = new AuthenticatedUser(userId, email);
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                 authenticatedUser,

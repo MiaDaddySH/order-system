@@ -25,8 +25,10 @@ import com.example.userorderapi.mapper.UserMapper;
 import com.example.userorderapi.model.User;
 import com.example.userorderapi.security.AuthenticatedUser;
 import com.example.userorderapi.service.JwtService;
+import com.example.userorderapi.service.LoginAttemptService;
 import com.example.userorderapi.service.UserService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -35,11 +37,18 @@ public class UserController {
     private final UserMapper userMapper;
     private final UserService userService;
     private final JwtService jwtService;
+    private final LoginAttemptService loginAttemptService;
 
-    public UserController(UserMapper userMapper, UserService userService, JwtService jwtService) {
+    public UserController(
+            UserMapper userMapper,
+            UserService userService,
+            JwtService jwtService,
+            LoginAttemptService loginAttemptService
+    ) {
         this.userMapper = userMapper;
         this.userService = userService;
         this.jwtService = jwtService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @PostMapping("/register")
@@ -52,9 +61,21 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<UserLoginResponse> loginUser(@Valid @RequestBody UserLoginRequest request) {
-        User user = userService.authenticate(request.email(), request.password());
-        String token = jwtService.generateToken(user.getId(), user.getEmail());
+    public ResponseEntity<UserLoginResponse> loginUser(
+            @Valid @RequestBody UserLoginRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        String attemptKey = buildLoginAttemptKey(request.email(), httpServletRequest.getRemoteAddr());
+        loginAttemptService.checkAllowed(attemptKey);
+        User user;
+        try {
+            user = userService.authenticate(request.email(), request.password());
+        } catch (RuntimeException ex) {
+            loginAttemptService.recordFailure(attemptKey);
+            throw ex;
+        }
+        loginAttemptService.recordSuccess(attemptKey);
+        String token = jwtService.generateToken(user.getId(), user.getEmail(), user.getPasswordHash());
         UserLoginResponse response = new UserLoginResponse(
                 token,
                 "Bearer",
@@ -114,5 +135,9 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(@PathVariable int id) {
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private String buildLoginAttemptKey(String email, String remoteAddress) {
+        return email + "|" + remoteAddress;
     }
 }
