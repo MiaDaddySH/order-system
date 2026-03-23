@@ -1,63 +1,44 @@
 package com.example.userorderapi.controller;
 
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.util.List;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.web.servlet.MvcResult;
 
-import com.example.userorderapi.dto.UserRegisterRequest;
-import com.example.userorderapi.dto.UserResponse;
-import com.example.userorderapi.exception.GlobalExceptionHandler;
-import com.example.userorderapi.mapper.UserMapper;
-import com.example.userorderapi.model.User;
-import com.example.userorderapi.service.UserService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
+@SpringBootTest
+@AutoConfigureMockMvc
 class UserControllerApiTest {
-
+    @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
-        UserMapper userMapper = new UserMapper() {
-            @Override
-            public User toUser(UserRegisterRequest request) {
-                User user = new User();
-                user.setName(request.name());
-                user.setEmail(request.email());
-                return user;
-            }
-
-            @Override
-            public UserResponse toUserResponse(User user) {
-                return new UserResponse(user.getId(), user.getName(), user.getEmail());
-            }
-
-            @Override
-            public List<UserResponse> toUserResponses(List<User> users) {
-                return users.stream().map(this::toUserResponse).toList();
-            }
-        };
-        UserController userController = new UserController(userMapper, new UserService());
-        mockMvc = MockMvcBuilders.standaloneSetup(userController)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+        jdbcTemplate.execute("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
     }
 
     @Test
     void registerUserReturnsUserWhenRequestIsValid() throws Exception {
-        mockMvc.perform(post("/users/register")
+        MvcResult mvcResult = mockMvc.perform(post("/users/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -66,10 +47,23 @@ class UserControllerApiTest {
                                 }
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "/users/1001"))
-                .andExpect(jsonPath("$.id", greaterThanOrEqualTo(1001)))
                 .andExpect(jsonPath("$.name").value("Alice"))
-                .andExpect(jsonPath("$.email").value("alice@example.com"));
+                .andExpect(jsonPath("$.email").value("alice@example.com"))
+                .andReturn();
+
+        JsonNode body = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
+        int userId = body.get("id").asInt();
+        String location = mvcResult.getResponse().getHeader("Location");
+
+        mockMvc.perform(get("/users/" + userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(userId));
+
+        mockMvc.perform(get("/users"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(userId));
+
+        org.junit.jupiter.api.Assertions.assertEquals("/users/" + userId, location);
     }
 
     @Test
@@ -95,7 +89,7 @@ class UserControllerApiTest {
 
     @Test
     void updateUserReturnsUpdatedUserWhenUserExists() throws Exception {
-        mockMvc.perform(post("/users/register")
+        MvcResult createResult = mockMvc.perform(post("/users/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -103,9 +97,12 @@ class UserControllerApiTest {
                                   "email": "alice@example.com"
                                 }
                                 """))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn();
 
-        mockMvc.perform(put("/users/1001")
+        int userId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asInt();
+
+        mockMvc.perform(put("/users/" + userId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -114,14 +111,14 @@ class UserControllerApiTest {
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(1001))
+                .andExpect(jsonPath("$.id").value(userId))
                 .andExpect(jsonPath("$.name").value("Alice Updated"))
                 .andExpect(jsonPath("$.email").value("alice.updated@example.com"));
     }
 
     @Test
     void deleteUserReturnsNoContentWhenUserExists() throws Exception {
-        mockMvc.perform(post("/users/register")
+        MvcResult createResult = mockMvc.perform(post("/users/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -129,12 +126,15 @@ class UserControllerApiTest {
                                   "email": "alice@example.com"
                                 }
                                 """))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn();
 
-        mockMvc.perform(delete("/users/1001"))
+        int userId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asInt();
+
+        mockMvc.perform(delete("/users/" + userId))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/users/1001"))
+        mockMvc.perform(get("/users/" + userId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("User not found"));
     }

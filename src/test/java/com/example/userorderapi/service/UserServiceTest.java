@@ -3,17 +3,30 @@ package com.example.userorderapi.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.userorderapi.model.User;
 
+@SpringBootTest
 class UserServiceTest {
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @BeforeEach
+    void cleanData() {
+        jdbcTemplate.execute("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
+    }
 
     @Test
-    void saveUserAssignsIncrementalId() {
-        UserService userService = new UserService();
-
+    void saveUserAssignsGeneratedId() {
         User first = new User();
         first.setName("Alice");
         first.setEmail("alice@example.com");
@@ -24,15 +37,14 @@ class UserServiceTest {
         User savedFirst = userService.saveUser(first);
         User savedSecond = userService.saveUser(second);
 
-        assertEquals(1001, savedFirst.getId());
-        assertEquals(1002, savedSecond.getId());
+        assertEquals(1, savedFirst.getId());
+        assertEquals(2, savedSecond.getId());
         assertEquals("Alice", savedFirst.getName());
         assertEquals("bob@example.com", savedSecond.getEmail());
     }
 
     @Test
     void getUserOrThrowReturnsUserWhenUserExists() {
-        UserService userService = new UserService();
         User user = new User();
         user.setName("Alice");
         user.setEmail("alice@example.com");
@@ -45,8 +57,6 @@ class UserServiceTest {
 
     @Test
     void getUserOrThrowThrowsWhenUserMissing() {
-        UserService userService = new UserService();
-
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> userService.getUserOrThrow(999999));
 
         assertEquals("User not found", ex.getReason());
@@ -54,7 +64,6 @@ class UserServiceTest {
 
     @Test
     void updateUserUpdatesExistingUser() {
-        UserService userService = new UserService();
         User original = new User();
         original.setName("Alice");
         original.setEmail("alice@example.com");
@@ -73,7 +82,6 @@ class UserServiceTest {
 
     @Test
     void updateUserThrowsWhenUserMissing() {
-        UserService userService = new UserService();
         User payload = new User();
         payload.setName("Nobody");
         payload.setEmail("nobody@example.com");
@@ -86,7 +94,6 @@ class UserServiceTest {
 
     @Test
     void deleteUserRemovesExistingUser() {
-        UserService userService = new UserService();
         User user = new User();
         user.setName("Alice");
         user.setEmail("alice@example.com");
@@ -101,8 +108,6 @@ class UserServiceTest {
 
     @Test
     void deleteUserThrowsWhenUserMissing() {
-        UserService userService = new UserService();
-
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> userService.deleteUser(999999));
 
         assertEquals("User not found", ex.getReason());

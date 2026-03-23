@@ -1,35 +1,32 @@
 package com.example.userorderapi.service;
 
-import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.userorderapi.model.User;
+import com.example.userorderapi.repository.UserRepository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 public class UserService {
-    private final List<User> users = new CopyOnWriteArrayList<>();
-    private final AtomicInteger currentId = new AtomicInteger(1000);
+    private final UserRepository userRepository;
+
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
 
     private User createUser(User user) {
-        int newId = currentId.incrementAndGet();
         User newUser = new User();
-        newUser.setId(newId);
         newUser.setName(user.getName());
         newUser.setEmail(user.getEmail());
-        users.add(newUser);
-        return newUser;
+        return userRepository.save(newUser);
     }
 
     public Optional<User> getUser(int id) {
-        return users.stream()
-                .filter(user -> user.getId() == id)
-                .findFirst();
+        return userRepository.findById(id);
     }
 
     public User getUserOrThrow(int id) {
@@ -44,17 +41,17 @@ public class UserService {
         User existingUser = getUserOrThrow(id);
         existingUser.setName(user.getName());
         existingUser.setEmail(user.getEmail());
-        return existingUser;
+        return userRepository.save(existingUser);
     }
 
     public void deleteUser(int id) {
-        boolean deleted = users.removeIf(user -> user.getId() == id);
-        if (!deleted) {
+        if (!userRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
+        userRepository.deleteById(id);
     }
 
     public List<User> getAllUsers() {
-        return users;
+        return userRepository.findAll();
     }
 }
