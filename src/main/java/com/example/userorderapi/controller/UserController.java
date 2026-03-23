@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.userorderapi.dto.UserRegisterRequest;
 import com.example.userorderapi.dto.UserResponse;
+import com.example.userorderapi.dto.UserUpdateRequest;
 import com.example.userorderapi.mapper.UserMapper;
 import com.example.userorderapi.model.User;
 import com.example.userorderapi.service.UserService;
@@ -34,8 +35,9 @@ public class UserController {
 
     @PostMapping("/register")
     public ResponseEntity<UserResponse> registerUser(@Valid @RequestBody UserRegisterRequest request) {
-        User user = userMapper.toUser(request);
-        User newUser = userService.saveUser(user);
+        User user = new User();
+        user.setEmail(request.email());
+        User newUser = userService.saveUser(user, request.password());
         return ResponseEntity.created(URI.create("/users/" + newUser.getId()))
                 .body(userMapper.toUserResponse(newUser));
     }
@@ -54,7 +56,7 @@ public class UserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UserResponse> updateUser(@PathVariable int id, @Valid @RequestBody UserRegisterRequest request) {
+    public ResponseEntity<UserResponse> updateUser(@PathVariable int id, @Valid @RequestBody UserUpdateRequest request) {
         User user = userMapper.toUser(request);
         User updatedUser = userService.updateUser(id, user);
         return ResponseEntity.ok(userMapper.toUserResponse(updatedUser));

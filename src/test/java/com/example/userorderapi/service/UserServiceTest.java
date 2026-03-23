@@ -34,13 +34,14 @@ class UserServiceTest {
         second.setName("Bob");
         second.setEmail("bob@example.com");
 
-        User savedFirst = userService.saveUser(first);
-        User savedSecond = userService.saveUser(second);
+        User savedFirst = userService.saveUser(first, "password123");
+        User savedSecond = userService.saveUser(second, "password456");
 
         assertEquals(1, savedFirst.getId());
         assertEquals(2, savedSecond.getId());
         assertEquals("Alice", savedFirst.getName());
         assertEquals("bob@example.com", savedSecond.getEmail());
+        org.junit.jupiter.api.Assertions.assertNotEquals("password123", savedFirst.getPasswordHash());
     }
 
     @Test
@@ -48,7 +49,7 @@ class UserServiceTest {
         User user = new User();
         user.setName("Alice");
         user.setEmail("alice@example.com");
-        User savedUser = userService.saveUser(user);
+        User savedUser = userService.saveUser(user, "password123");
 
         User foundUser = userService.getUserOrThrow(savedUser.getId());
 
@@ -67,7 +68,7 @@ class UserServiceTest {
         User original = new User();
         original.setName("Alice");
         original.setEmail("alice@example.com");
-        User saved = userService.saveUser(original);
+        User saved = userService.saveUser(original, "password123");
 
         User updatePayload = new User();
         updatePayload.setName("Alice Updated");
@@ -97,7 +98,7 @@ class UserServiceTest {
         User user = new User();
         user.setName("Alice");
         user.setEmail("alice@example.com");
-        User saved = userService.saveUser(user);
+        User saved = userService.saveUser(user, "password123");
 
         userService.deleteUser(saved.getId());
 

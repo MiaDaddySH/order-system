@@ -42,15 +42,14 @@ class UserControllerApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "name": "Alice",
-                                  "email": "alice@example.com"
+                                  "email": "alice@example.com",
+                                  "password": "password123"
                                 }
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name").value("Alice"))
+                .andExpect(jsonPath("$.name").value(""))
                 .andExpect(jsonPath("$.email").value("alice@example.com"))
                 .andReturn();
-
         JsonNode body = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
         int userId = body.get("id").asInt();
         String location = mvcResult.getResponse().getHeader("Location");
@@ -72,12 +71,12 @@ class UserControllerApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "name": "",
-                                  "email": "alice@example.com"
+                                  "email": "alice@example.com",
+                                  "password": ""
                                 }
                                 """))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Name is required"));
+                .andExpect(jsonPath("$.message").value("Password is required"));
     }
 
     @Test
@@ -93,8 +92,8 @@ class UserControllerApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "name": "Alice",
-                                  "email": "alice@example.com"
+                                  "email": "alice@example.com",
+                                  "password": "password123"
                                 }
                                 """))
                 .andExpect(status().isCreated())
@@ -122,8 +121,8 @@ class UserControllerApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "name": "Alice",
-                                  "email": "alice@example.com"
+                                  "email": "alice@example.com",
+                                  "password": "password123"
                                 }
                                 """))
                 .andExpect(status().isCreated())
@@ -144,5 +143,29 @@ class UserControllerApiTest {
         mockMvc.perform(delete("/users/999999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("User not found"));
+    }
+
+    @Test
+    void registerUserReturnsConflictWhenEmailAlreadyExists() throws Exception {
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "password456"
+                                }
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Email already registered"));
     }
 }

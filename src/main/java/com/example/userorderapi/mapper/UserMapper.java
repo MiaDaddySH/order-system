@@ -6,14 +6,17 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.ReportingPolicy;
 
-import com.example.userorderapi.dto.UserRegisterRequest;
 import com.example.userorderapi.dto.UserResponse;
+import com.example.userorderapi.dto.UserUpdateRequest;
 import com.example.userorderapi.model.User;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface UserMapper {
     @Mapping(target = "id", ignore = true)
-    User toUser(UserRegisterRequest request);
+    @Mapping(target = "passwordHash", ignore = true)
+    @Mapping(target = "address", ignore = true)
+    @Mapping(target = "phone", ignore = true)
+    User toUser(UserUpdateRequest request);
 
     UserResponse toUserResponse(User user);
 

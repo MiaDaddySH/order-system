@@ -1,6 +1,8 @@
 package com.example.userorderapi.service;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -13,15 +15,21 @@ import java.util.Optional;
 @Service
 public class UserService {
     private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public UserService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
 
-    private User createUser(User user) {
+    private User createUser(User user, String rawPassword) {
+        if (userRepository.existsByEmail(user.getEmail())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+        }
+
         User newUser = new User();
-        newUser.setName(user.getName());
+        newUser.setName(user.getName() == null ? "" : user.getName());
         newUser.setEmail(user.getEmail());
+        newUser.setPasswordHash(passwordEncoder.encode(rawPassword));
         return userRepository.save(newUser);
     }
 
@@ -33,8 +41,8 @@ public class UserService {
         return getUser(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
-    public User saveUser(User user) {
-        return createUser(user);
+    public User saveUser(User user, String rawPassword) {
+        return createUser(user, rawPassword);
     }
 
     public User updateUser(int id, User user) {
