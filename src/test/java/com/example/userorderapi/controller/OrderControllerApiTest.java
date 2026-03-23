@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +39,9 @@ class OrderControllerApiTest {
 
     @Test
     void createOrderReturnsOrderWhenRequestIsValid() throws Exception {
+        String token = loginAndGetToken();
         MvcResult mvcResult = mockMvc.perform(post("/orders")
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -54,7 +58,8 @@ class OrderControllerApiTest {
         int orderId = objectMapper.readTree(mvcResult.getResponse().getContentAsString()).get("id").asInt();
         String location = mvcResult.getResponse().getHeader("Location");
 
-        mockMvc.perform(get("/orders/" + orderId))
+        mockMvc.perform(get("/orders/" + orderId)
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(orderId));
 
@@ -63,7 +68,9 @@ class OrderControllerApiTest {
 
     @Test
     void createOrderReturnsBadRequestWhenRequestIsMalformed() throws Exception {
+        String token = loginAndGetToken();
         mockMvc.perform(post("/orders")
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{"))
                 .andExpect(status().isBadRequest());
@@ -71,7 +78,9 @@ class OrderControllerApiTest {
 
     @Test
     void createOrderReturnsBadRequestWhenRequestIsInvalid() throws Exception {
+        String token = loginAndGetToken();
         mockMvc.perform(post("/orders")
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -85,7 +94,9 @@ class OrderControllerApiTest {
 
     @Test
     void createOrderReturnsBadRequestWhenQuantityIsNotPositive() throws Exception {
+        String token = loginAndGetToken();
         mockMvc.perform(post("/orders")
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -99,7 +110,9 @@ class OrderControllerApiTest {
 
     @Test
     void getAllOrdersReturnsCreatedOrders() throws Exception {
+        String token = loginAndGetToken();
         MvcResult firstCreate = mockMvc.perform(post("/orders")
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
@@ -110,6 +123,7 @@ class OrderControllerApiTest {
                 .andExpect(status().isCreated())
                 .andReturn();
         MvcResult secondCreate = mockMvc.perform(post("/orders")
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
@@ -123,7 +137,8 @@ class OrderControllerApiTest {
         int firstOrderId = objectMapper.readTree(firstCreate.getResponse().getContentAsString()).get("id").asInt();
         int secondOrderId = objectMapper.readTree(secondCreate.getResponse().getContentAsString()).get("id").asInt();
 
-        mockMvc.perform(get("/orders"))
+        mockMvc.perform(get("/orders")
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].id").value(firstOrderId))
@@ -132,14 +147,18 @@ class OrderControllerApiTest {
 
     @Test
     void getOrderReturnsNotFoundWhenOrderDoesNotExist() throws Exception {
-        mockMvc.perform(get("/orders/999999"))
+        String token = loginAndGetToken();
+        mockMvc.perform(get("/orders/999999")
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Order not found"));
     }
 
     @Test
     void deleteOrderReturnsDeletedMessageWhenOrderExists() throws Exception {
+        String token = loginAndGetToken();
         MvcResult createResult = mockMvc.perform(post("/orders")
+                .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
@@ -151,15 +170,50 @@ class OrderControllerApiTest {
 
         int orderId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asInt();
 
-        mockMvc.perform(delete("/orders/" + orderId))
+        mockMvc.perform(delete("/orders/" + orderId)
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(content().string("Deleted order " + orderId));
     }
 
     @Test
     void deleteOrderReturnsNotFoundWhenOrderMissing() throws Exception {
-        mockMvc.perform(delete("/orders/999999"))
+        String token = loginAndGetToken();
+        mockMvc.perform(delete("/orders/999999")
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Order not found"));
+    }
+
+    @Test
+    void getOrderReturnsUnauthorizedWhenTokenMissing() throws Exception {
+        mockMvc.perform(get("/orders/1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private String loginAndGetToken() throws Exception {
+        String email = "order-" + UUID.randomUUID() + "@example.com";
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "password123"
+                                }
+                                """.formatted(email)))
+                .andExpect(status().isCreated());
+
+        MvcResult loginResult = mockMvc.perform(post("/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "password123"
+                                }
+                                """.formatted(email)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        return objectMapper.readTree(loginResult.getResponse().getContentAsString()).get("token").asText();
     }
 }

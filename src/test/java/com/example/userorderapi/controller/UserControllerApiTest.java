@@ -53,12 +53,15 @@ class UserControllerApiTest {
         JsonNode body = objectMapper.readTree(mvcResult.getResponse().getContentAsString());
         int userId = body.get("id").asInt();
         String location = mvcResult.getResponse().getHeader("Location");
+        String token = loginAndGetToken("alice@example.com", "password123");
 
-        mockMvc.perform(get("/users/" + userId))
+        mockMvc.perform(get("/users/" + userId)
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(userId));
 
-        mockMvc.perform(get("/users"))
+        mockMvc.perform(get("/users")
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(userId));
 
@@ -81,7 +84,18 @@ class UserControllerApiTest {
 
     @Test
     void getUserReturnsNotFoundWhenUserDoesNotExist() throws Exception {
-        mockMvc.perform(get("/users/999999"))
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+        String token = loginAndGetToken("alice@example.com", "password123");
+        mockMvc.perform(get("/users/999999")
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("User not found"));
     }
@@ -100,8 +114,10 @@ class UserControllerApiTest {
                 .andReturn();
 
         int userId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asInt();
+        String token = loginAndGetToken("alice@example.com", "password123");
 
         mockMvc.perform(put("/users/" + userId)
+                        .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -129,18 +145,32 @@ class UserControllerApiTest {
                 .andReturn();
 
         int userId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asInt();
+        String token = loginAndGetToken("alice@example.com", "password123");
 
-        mockMvc.perform(delete("/users/" + userId))
+        mockMvc.perform(delete("/users/" + userId)
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNoContent());
 
-        mockMvc.perform(get("/users/" + userId))
+        mockMvc.perform(get("/users/" + userId)
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("User not found"));
     }
 
     @Test
     void deleteUserReturnsNotFoundWhenUserDoesNotExist() throws Exception {
-        mockMvc.perform(delete("/users/999999"))
+        mockMvc.perform(post("/users/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "alice@example.com",
+                                  "password": "password123"
+                                }
+                                """))
+                .andExpect(status().isCreated());
+        String token = loginAndGetToken("alice@example.com", "password123");
+        mockMvc.perform(delete("/users/999999")
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("User not found"));
     }
@@ -218,5 +248,25 @@ class UserControllerApiTest {
                                 """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Invalid email or password"));
+    }
+
+    @Test
+    void getUserReturnsUnauthorizedWhenTokenMissing() throws Exception {
+        mockMvc.perform(get("/users/1"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    private String loginAndGetToken(String email, String password) throws Exception {
+        MvcResult loginResult = mockMvc.perform(post("/users/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "%s"
+                                }
+                                """.formatted(email, password)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return objectMapper.readTree(loginResult.getResponse().getContentAsString()).get("token").asText();
     }
 }
