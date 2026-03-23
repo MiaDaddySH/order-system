@@ -1,54 +1,43 @@
 package com.example.userorderapi.controller;
 
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.util.List;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.test.web.servlet.MvcResult;
 
-import com.example.userorderapi.exception.GlobalExceptionHandler;
-import com.example.userorderapi.dto.OrderResponse;
-import com.example.userorderapi.mapper.OrderMapper;
-import com.example.userorderapi.model.Order;
-import com.example.userorderapi.service.OrderService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
+@SpringBootTest
+@AutoConfigureMockMvc
 class OrderControllerApiTest {
-
+    @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
-        OrderMapper orderMapper = new OrderMapper() {
-            @Override
-            public OrderResponse toOrderResponse(Order order) {
-                return new OrderResponse(order.getId(), order.getProduct(), order.getQuantity(), order.getStatus());
-            }
-
-            @Override
-            public List<OrderResponse> toOrderResponses(List<Order> orders) {
-                return orders.stream().map(this::toOrderResponse).toList();
-            }
-        };
-        OrderController orderController = new OrderController(orderMapper, new OrderService());
-        mockMvc = MockMvcBuilders.standaloneSetup(orderController)
-                .setControllerAdvice(new GlobalExceptionHandler())
-                .build();
+        jdbcTemplate.execute("TRUNCATE TABLE orders RESTART IDENTITY CASCADE");
     }
 
     @Test
     void createOrderReturnsOrderWhenRequestIsValid() throws Exception {
-        mockMvc.perform(post("/orders")
+        MvcResult mvcResult = mockMvc.perform(post("/orders")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -57,11 +46,19 @@ class OrderControllerApiTest {
                                 }
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(header().string("Location", "/orders/1001"))
-                .andExpect(jsonPath("$.id", greaterThanOrEqualTo(1001)))
                 .andExpect(jsonPath("$.product").value("Book"))
                 .andExpect(jsonPath("$.quantity").value(2))
-                .andExpect(jsonPath("$.status").value("created"));
+                .andExpect(jsonPath("$.status").value("created"))
+                .andReturn();
+
+        int orderId = objectMapper.readTree(mvcResult.getResponse().getContentAsString()).get("id").asInt();
+        String location = mvcResult.getResponse().getHeader("Location");
+
+        mockMvc.perform(get("/orders/" + orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(orderId));
+
+        org.junit.jupiter.api.Assertions.assertEquals("/orders/" + orderId, location);
     }
 
     @Test
@@ -102,28 +99,35 @@ class OrderControllerApiTest {
 
     @Test
     void getAllOrdersReturnsCreatedOrders() throws Exception {
-        mockMvc.perform(post("/orders")
+        MvcResult firstCreate = mockMvc.perform(post("/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
                           "product": "Book",
                           "quantity": 2
                         }
-                        """));
-        mockMvc.perform(post("/orders")
+                        """))
+                .andExpect(status().isCreated())
+                .andReturn();
+        MvcResult secondCreate = mockMvc.perform(post("/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
                           "product": "Pen",
                           "quantity": 3
                         }
-                        """));
+                        """))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        int firstOrderId = objectMapper.readTree(firstCreate.getResponse().getContentAsString()).get("id").asInt();
+        int secondOrderId = objectMapper.readTree(secondCreate.getResponse().getContentAsString()).get("id").asInt();
 
         mockMvc.perform(get("/orders"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].product").value("Book"))
-                .andExpect(jsonPath("$[1].product").value("Pen"));
+                .andExpect(jsonPath("$[0].id").value(firstOrderId))
+                .andExpect(jsonPath("$[1].id").value(secondOrderId));
     }
 
     @Test
@@ -135,18 +139,21 @@ class OrderControllerApiTest {
 
     @Test
     void deleteOrderReturnsDeletedMessageWhenOrderExists() throws Exception {
-        mockMvc.perform(post("/orders")
+        MvcResult createResult = mockMvc.perform(post("/orders")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {
                           "product": "Book",
                           "quantity": 2
                         }
-                        """));
+                        """))
+                .andReturn();
 
-        mockMvc.perform(delete("/orders/1001"))
+        int orderId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asInt();
+
+        mockMvc.perform(delete("/orders/" + orderId))
                 .andExpect(status().isOk())
-                .andExpect(content().string("Deleted order 1001"));
+                .andExpect(content().string("Deleted order " + orderId));
     }
 
     @Test
