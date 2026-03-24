@@ -51,6 +51,7 @@ DB_PASSWORD=postgres \
 - `DB_USERNAME`
 - `DB_PASSWORD`
 - `JWT_SECRET`
+- `CORS_ALLOWED_ORIGINS`
 
 ### 可选环境变量
 
@@ -67,8 +68,43 @@ DB_URL=jdbc:postgresql://<host>:5432/user_order_api \
 DB_USERNAME=<username> \
 DB_PASSWORD=<password> \
 JWT_SECRET=<strong_secret> \
+CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com \
 ./mvnw spring-boot:run
 ```
+
+### 生产环境变量模板
+
+可以复制并按实际环境填写：
+
+```bash
+cp deploy/prod.env.example .env.prod
+```
+
+### HTTPS 反向代理（Nginx 示例）
+
+生产建议由 Nginx 终止 TLS，再反向代理到应用服务。
+
+```bash
+cp deploy/nginx/user-order-api.conf.example /etc/nginx/conf.d/user-order-api.conf
+```
+
+需要按实际环境调整：
+
+- `server_name`（域名）
+- `ssl_certificate` 与 `ssl_certificate_key`（证书路径）
+- `proxy_pass`（应用监听地址与端口）
+
+修改后执行：
+
+```bash
+nginx -t && nginx -s reload
+```
+
+### 生产上线清单
+
+上线前请逐项检查：
+
+- [PRODUCTION_CHECKLIST.md](file:///Volumes/Development/intellij_projects/demo/deploy/PRODUCTION_CHECKLIST.md)
 
 ## 测试
 
