@@ -1,0 +1,38 @@
+groups:
+  - name: user-order-api
+    rules:
+      - alert: UserOrderApiDown
+        expr: up{job="user-order-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: user-order-api 不可用
+          description: Prometheus 连续 2 分钟无法抓取 user-order-api 指标
+
+      - alert: UserOrderApiHigh5xxRate
+        expr: |
+          (
+            sum(rate(http_server_requests_seconds_count{application="user-order-api",status=~"5.."}[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{application="user-order-api"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: user-order-api 5xx 错误率过高
+          description: 过去 5 分钟 5xx 占比超过 5%
+
+      - alert: UserOrderApiHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(http_server_requests_seconds_bucket{application="user-order-api"}[5m])) by (le)
+          ) > 1.0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: user-order-api P95 延迟过高
+          description: 过去 10 分钟 P95 响应延迟超过 1 秒

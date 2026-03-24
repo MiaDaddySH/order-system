@@ -106,6 +106,24 @@ nginx -t && nginx -s reload
 
 - [PRODUCTION_CHECKLIST.md](file:///Volumes/Development/intellij_projects/demo/deploy/PRODUCTION_CHECKLIST.md)
 
+## 监控与告警（最小接入）
+
+### Actuator 与 Prometheus 指标
+
+- 健康检查：`/actuator/health`
+- 基础信息：`/actuator/info`
+- Prometheus 指标：`/actuator/prometheus`
+
+### Prometheus 告警规则模板
+
+- [prometheus-alerts.example.yml](file:///Volumes/Development/intellij_projects/demo/deploy/monitoring/prometheus-alerts.example.yml)
+
+包含三条基础告警：
+
+- 服务不可用（`up == 0`）
+- 5xx 错误率过高（5 分钟窗口）
+- P95 延迟过高（10 分钟窗口）
+
 ## 测试
 
 ```bash
