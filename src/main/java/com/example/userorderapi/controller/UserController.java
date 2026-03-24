@@ -3,6 +3,8 @@ package com.example.userorderapi.controller;
 import java.util.List;
 import java.net.URI;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -34,6 +36,7 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/users")
 public class UserController {
+    private static final Logger log = LoggerFactory.getLogger(UserController.class);
     private final UserMapper userMapper;
     private final UserService userService;
     private final JwtService jwtService;
@@ -72,6 +75,7 @@ public class UserController {
             user = userService.authenticate(request.email(), request.password());
         } catch (RuntimeException ex) {
             loginAttemptService.recordFailure(attemptKey);
+            log.warn("security event=login_failed email={} ip={}", request.email(), httpServletRequest.getRemoteAddr());
             throw ex;
         }
         loginAttemptService.recordSuccess(attemptKey);

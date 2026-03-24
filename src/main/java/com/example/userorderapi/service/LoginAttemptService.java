@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -12,6 +14,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class LoginAttemptService {
+    private static final Logger log = LoggerFactory.getLogger(LoginAttemptService.class);
     private final int maxFailedAttempts;
     private final Duration blockDuration;
     private final Map<String, AttemptState> attempts = new ConcurrentHashMap<>();
@@ -30,6 +33,7 @@ public class LoginAttemptService {
             return;
         }
         if (state.blockedUntil != null && state.blockedUntil.isAfter(Instant.now())) {
+            log.warn("security event=login_throttled key={} blockedUntil={}", key, state.blockedUntil);
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "Too many login attempts");
         }
     }
@@ -46,6 +50,7 @@ public class LoginAttemptService {
             if (state.failedCount >= maxFailedAttempts) {
                 state.blockedUntil = now.plus(blockDuration);
                 state.failedCount = 0;
+                log.warn("security event=login_blocked key={} blockedUntil={}", key, state.blockedUntil);
             }
             return state;
         });
