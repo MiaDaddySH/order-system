@@ -1,0 +1,24 @@
+{
+  "properties": [
+    {
+      "name": "app.auth.jwt-secret",
+      "type": "java.lang.String",
+      "description": "JWT signing secret."
+    },
+    {
+      "name": "app.auth.jwt-expiration-seconds",
+      "type": "java.lang.Long",
+      "description": "JWT expiration time in seconds."
+    },
+    {
+      "name": "app.auth.login.max-failed-attempts",
+      "type": "java.lang.Integer",
+      "description": "Maximum failed login attempts before temporary block."
+    },
+    {
+      "name": "app.auth.login.block-seconds",
+      "type": "java.lang.Long",
+      "description": "Temporary block duration in seconds after too many failed attempts."
+    }
+  ]
+}
