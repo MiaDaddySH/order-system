@@ -19,6 +19,11 @@
       "name": "app.auth.login.block-seconds",
       "type": "java.lang.Long",
       "description": "Temporary block duration in seconds after too many failed attempts."
+    },
+    {
+      "name": "app.security.cors.allowed-origins",
+      "type": "java.lang.String",
+      "description": "Comma-separated list of allowed CORS origins."
     }
   ]
 }
