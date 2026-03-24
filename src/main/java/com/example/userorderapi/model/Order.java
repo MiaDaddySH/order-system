@@ -6,9 +6,13 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "orders")
+@Getter
+@Setter
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,38 +34,6 @@ public class Order {
         this.id = id;
         this.product = product;
         this.quantity = quantity;
-        this.status = status;
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public String getProduct() {
-        return product;
-    }
-
-    public int getQuantity() {
-        return quantity;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public void setProduct(String product) {
-        this.product = product;
-    }
-
-    public void setQuantity(int quantity) {
-        this.quantity = quantity;
-    }
-
-    public void setStatus(String status) {
         this.status = status;
     }
 }

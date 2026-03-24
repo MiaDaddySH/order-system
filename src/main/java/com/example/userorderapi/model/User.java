@@ -6,9 +6,13 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 @Entity
 @Table(name = "users")
+@Getter
+@Setter
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -30,53 +34,5 @@ public class User {
     private String phone;
 
     public User() {
-    }
-
-    public int getId() {
-        return id;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getPasswordHash() {
-        return passwordHash;
-    }
-
-    public String getAddress() {
-        return address;
-    }
-
-    public String getPhone() {
-        return phone;
-    }
-
-    public void setId(int id) {
-        this.id = id;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public void setPasswordHash(String passwordHash) {
-        this.passwordHash = passwordHash;
-    }
-
-    public void setAddress(String address) {
-        this.address = address;
-    }
-
-    public void setPhone(String phone) {
-        this.phone = phone;
     }
 }

@@ -9,13 +9,12 @@ import com.example.userorderapi.repository.OrderRepository;
 import java.util.List;
 import java.util.Optional;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class OrderService {
     private final OrderRepository orderRepository;
-
-    public OrderService(OrderRepository orderRepository) {
-        this.orderRepository = orderRepository;
-    }
 
     public Order createOrder(CreateOrderRequest request) {
         Order order = new Order();

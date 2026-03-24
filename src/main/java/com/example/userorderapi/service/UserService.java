@@ -12,14 +12,13 @@ import com.example.userorderapi.repository.UserRepository;
 import java.util.List;
 import java.util.Optional;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     private User createUser(User user, String rawPassword) {
         if (userRepository.existsByEmail(user.getEmail())) {
