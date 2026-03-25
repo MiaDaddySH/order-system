@@ -105,7 +105,7 @@ jobs:
           SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
         run: |
           PORT="${SSH_PORT:-22}"
-          ssh -T -i ~/.ssh/prod_key -o IdentitiesOnly=yes -p "$PORT" "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}" << 'EOF'
+          ssh -T -i ~/.ssh/prod_key -o IdentitiesOnly=yes -p "$PORT" "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}" "bash -s" << 'EOF'
           set -euo pipefail
           sudo -n install -o app -g app -m 644 /tmp/app.jar /opt/user-order-api/app.jar
           sudo -n systemctl restart user-order-api
