@@ -109,13 +109,18 @@ jobs:
           set -euo pipefail
           sudo -n install -o app -g app -m 644 /tmp/app.jar /opt/user-order-api/app.jar
           sudo -n systemctl restart user-order-api
+          HEALTH_OK=0
           for i in $(seq 1 24); do
             if curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null; then
+              HEALTH_OK=1
               echo "health check passed"
-              exit 0
+              break
             fi
             sleep 5
           done
+          if [ "$HEALTH_OK" -eq 1 ]; then
+            exit 0
+          fi
           echo "health check failed, collecting diagnostics"
           sudo -n systemctl status user-order-api --no-pager || true
           sudo -n journalctl -u user-order-api -n 120 --no-pager || true
