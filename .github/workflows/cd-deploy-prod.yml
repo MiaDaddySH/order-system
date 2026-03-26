@@ -103,12 +103,14 @@ jobs:
       - name: Deploy and restart service
         env:
           SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
+          PROD_BASE_URL: ${{ secrets.PROD_BASE_URL }}
         run: |
           PORT="${SSH_PORT:-22}"
-          ssh -T -i ~/.ssh/prod_key -o IdentitiesOnly=yes -p "$PORT" "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}" "bash -s" << 'EOF'
+          ssh -T -i ~/.ssh/prod_key -o IdentitiesOnly=yes -p "$PORT" "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}" "PROD_BASE_URL='${PROD_BASE_URL}' bash -s" << 'EOF'
           set -euo pipefail
           APP_JAR="/opt/user-order-api/app.jar"
           BACKUP_JAR="/opt/user-order-api/app.jar.prev"
+          BASE_URL="${PROD_BASE_URL:-https://api.junfengtech.com}"
           if [ -f "$APP_JAR" ]; then
             sudo -n cp "$APP_JAR" "$BACKUP_JAR"
           fi
@@ -124,14 +126,30 @@ jobs:
             sleep 5
           done
           if [ "$HEALTH_OK" -eq 1 ]; then
-            exit 0
+            echo "running smoke test on ${BASE_URL}"
+            set +e
+            SMOKE_EMAIL="smoke_$(date +%s)@example.com"
+            SMOKE_PASSWORD="SmokePass123"
+            curl -fsS -X POST "${BASE_URL}/users/register" -H "Content-Type: application/json" -d "{\"email\":\"${SMOKE_EMAIL}\",\"password\":\"${SMOKE_PASSWORD}\"}" >/dev/null
+            LOGIN_RESP="$(curl -fsS -X POST "${BASE_URL}/users/login" -H "Content-Type: application/json" -d "{\"email\":\"${SMOKE_EMAIL}\",\"password\":\"${SMOKE_PASSWORD}\"}")"
+            TOKEN="$(printf '%s' "$LOGIN_RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
+            AUTH_HEADER="Authorization: Bearer ${TOKEN}"
+            ORDER_RESP="$(curl -fsS -X POST "${BASE_URL}/orders" -H "Content-Type: application/json" -H "$AUTH_HEADER" -d '{"product":"smoke-item","quantity":1}')"
+            printf '%s' "$ORDER_RESP" | python3 -c 'import json,sys; data=json.load(sys.stdin); assert data.get("product")=="smoke-item"; assert data.get("quantity")==1'
+            curl -fsS "${BASE_URL}/orders" -H "$AUTH_HEADER" >/dev/null
+            SMOKE_STATUS=$?
+            set -e
+            if [ "$SMOKE_STATUS" -eq 0 ]; then
+              echo "smoke test passed"
+              exit 0
+            fi
+            echo "smoke test failed, rolling back to previous jar"
           fi
           if [ -f "$BACKUP_JAR" ]; then
-            echo "health check failed, rolling back to previous jar"
             sudo -n install -o app -g app -m 644 "$BACKUP_JAR" "$APP_JAR"
             sudo -n systemctl restart user-order-api || true
           fi
-          echo "health check failed, collecting diagnostics"
+          echo "deployment verification failed, collecting diagnostics"
           sudo -n systemctl status user-order-api --no-pager || true
           sudo -n journalctl -u user-order-api -n 120 --no-pager || true
           sudo -n ss -lntp | grep 8080 || true
