@@ -128,6 +128,7 @@ jobs:
           if [ "$HEALTH_OK" -eq 1 ]; then
             echo "running smoke test on ${BASE_URL}"
             set +e
+            SMOKE_STARTED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
             SMOKE_EMAIL="smoke_$(date +%s)@example.com"
             SMOKE_PASSWORD="SmokePass123"
             curl -fsS -X POST "${BASE_URL}/users/register" -H "Content-Type: application/json" -d "{\"email\":\"${SMOKE_EMAIL}\",\"password\":\"${SMOKE_PASSWORD}\"}" >/dev/null
@@ -136,14 +137,20 @@ jobs:
             AUTH_HEADER="Authorization: Bearer ${TOKEN}"
             ORDER_RESP="$(curl -fsS -X POST "${BASE_URL}/orders" -H "Content-Type: application/json" -H "$AUTH_HEADER" -d '{"product":"smoke-item","quantity":1}')"
             printf '%s' "$ORDER_RESP" | python3 -c 'import json,sys; data=json.load(sys.stdin); assert data.get("product")=="smoke-item"; assert data.get("quantity")==1'
-            curl -fsS "${BASE_URL}/orders" -H "$AUTH_HEADER" >/dev/null
+            ORDERS_RESP="$(curl -fsS "${BASE_URL}/orders" -H "$AUTH_HEADER")"
             SMOKE_STATUS=$?
             set -e
             if [ "$SMOKE_STATUS" -eq 0 ]; then
+              ORDER_ID="$(printf '%s' "$ORDER_RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("id",""))')"
+              ORDERS_COUNT="$(printf '%s' "$ORDERS_RESP" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(len(data) if isinstance(data,list) else -1)')"
+              SMOKE_FINISHED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
               echo "smoke test passed"
+              echo "smoke_summary started_at=${SMOKE_STARTED_AT} finished_at=${SMOKE_FINISHED_AT} base_url=${BASE_URL} email=${SMOKE_EMAIL} order_id=${ORDER_ID} orders_count=${ORDERS_COUNT}"
               exit 0
             fi
+            SMOKE_FINISHED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
             echo "smoke test failed, rolling back to previous jar"
+            echo "smoke_summary started_at=${SMOKE_STARTED_AT} finished_at=${SMOKE_FINISHED_AT} base_url=${BASE_URL} email=${SMOKE_EMAIL} status=${SMOKE_STATUS}"
           fi
           if [ -f "$BACKUP_JAR" ]; then
             sudo -n install -o app -g app -m 644 "$BACKUP_JAR" "$APP_JAR"
