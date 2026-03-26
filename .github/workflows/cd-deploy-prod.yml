@@ -107,6 +107,11 @@ jobs:
           PORT="${SSH_PORT:-22}"
           ssh -T -i ~/.ssh/prod_key -o IdentitiesOnly=yes -p "$PORT" "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}" "bash -s" << 'EOF'
           set -euo pipefail
+          APP_JAR="/opt/user-order-api/app.jar"
+          BACKUP_JAR="/opt/user-order-api/app.jar.prev"
+          if [ -f "$APP_JAR" ]; then
+            sudo -n cp "$APP_JAR" "$BACKUP_JAR"
+          fi
           sudo -n install -o app -g app -m 644 /tmp/app.jar /opt/user-order-api/app.jar
           sudo -n systemctl restart user-order-api
           HEALTH_OK=0
@@ -120,6 +125,11 @@ jobs:
           done
           if [ "$HEALTH_OK" -eq 1 ]; then
             exit 0
+          fi
+          if [ -f "$BACKUP_JAR" ]; then
+            echo "health check failed, rolling back to previous jar"
+            sudo -n install -o app -g app -m 644 "$BACKUP_JAR" "$APP_JAR"
+            sudo -n systemctl restart user-order-api || true
           fi
           echo "health check failed, collecting diagnostics"
           sudo -n systemctl status user-order-api --no-pager || true
