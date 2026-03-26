@@ -93,12 +93,19 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -p "$PORT" "${{ secrets.PROD_SSH_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Upload jar
+      - name: Build docker image
+        run: |
+          IMAGE_TAG="user-order-api:${GITHUB_SHA}"
+          docker build --build-arg JAR_FILE=target/user-order-api-0.0.1-SNAPSHOT.jar -t "$IMAGE_TAG" .
+          mkdir -p dist
+          docker save "$IMAGE_TAG" -o dist/user-order-api-image.tar
+
+      - name: Upload docker image tar
         env:
           SSH_PORT: ${{ secrets.PROD_SSH_PORT }}
         run: |
           PORT="${SSH_PORT:-22}"
-          scp -i ~/.ssh/prod_key -o IdentitiesOnly=yes -P "$PORT" target/user-order-api-0.0.1-SNAPSHOT.jar "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:/tmp/app.jar"
+          scp -i ~/.ssh/prod_key -o IdentitiesOnly=yes -P "$PORT" dist/user-order-api-image.tar "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}:/tmp/user-order-api-image.tar"
 
       - name: Deploy and restart service
         env:
@@ -106,16 +113,19 @@ jobs:
           PROD_BASE_URL: ${{ secrets.PROD_BASE_URL }}
         run: |
           PORT="${SSH_PORT:-22}"
-          ssh -T -i ~/.ssh/prod_key -o IdentitiesOnly=yes -p "$PORT" "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}" "PROD_BASE_URL='${PROD_BASE_URL}' bash -s" << 'EOF'
+          ssh -T -i ~/.ssh/prod_key -o IdentitiesOnly=yes -p "$PORT" "${{ secrets.PROD_SSH_USER }}@${{ secrets.PROD_SSH_HOST }}" "PROD_BASE_URL='${PROD_BASE_URL}' DEPLOY_SHA='${GITHUB_SHA}' bash -s" << 'EOF'
           set -euo pipefail
-          APP_JAR="/opt/user-order-api/app.jar"
-          BACKUP_JAR="/opt/user-order-api/app.jar.prev"
+          CONTAINER_NAME="user-order-api"
+          NEW_IMAGE="user-order-api:${DEPLOY_SHA}"
           BASE_URL="${PROD_BASE_URL:-https://api.junfengtech.com}"
-          if [ -f "$APP_JAR" ]; then
-            sudo -n cp "$APP_JAR" "$BACKUP_JAR"
+          if ! sudo -n docker version >/dev/null 2>&1; then
+            echo "docker is not available for deploy user. install docker and allow sudo -n docker."
+            exit 1
           fi
-          sudo -n install -o app -g app -m 644 /tmp/app.jar /opt/user-order-api/app.jar
-          sudo -n systemctl restart user-order-api
+          PREV_IMAGE="$(sudo -n docker inspect --format='{{.Config.Image}}' "$CONTAINER_NAME" 2>/dev/null || true)"
+          sudo -n docker load -i /tmp/user-order-api-image.tar >/dev/null
+          sudo -n docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+          sudo -n docker run -d --name "$CONTAINER_NAME" --restart unless-stopped --env-file /opt/user-order-api/.env.prod -p 127.0.0.1:8080:8080 "$NEW_IMAGE" >/dev/null
           HEALTH_OK=0
           for i in $(seq 1 24); do
             if curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null; then
@@ -149,16 +159,17 @@ jobs:
               exit 0
             fi
             SMOKE_FINISHED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-            echo "smoke test failed, rolling back to previous jar"
+            echo "smoke test failed, rolling back to previous image"
             echo "smoke_summary started_at=${SMOKE_STARTED_AT} finished_at=${SMOKE_FINISHED_AT} base_url=${BASE_URL} email=${SMOKE_EMAIL} status=${SMOKE_STATUS}"
           fi
-          if [ -f "$BACKUP_JAR" ]; then
-            sudo -n install -o app -g app -m 644 "$BACKUP_JAR" "$APP_JAR"
-            sudo -n systemctl restart user-order-api || true
+          if [ -n "$PREV_IMAGE" ]; then
+            echo "rolling back to previous image: ${PREV_IMAGE}"
+            sudo -n docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+            sudo -n docker run -d --name "$CONTAINER_NAME" --restart unless-stopped --env-file /opt/user-order-api/.env.prod -p 127.0.0.1:8080:8080 "$PREV_IMAGE" >/dev/null || true
           fi
           echo "deployment verification failed, collecting diagnostics"
-          sudo -n systemctl status user-order-api --no-pager || true
-          sudo -n journalctl -u user-order-api -n 120 --no-pager || true
+          sudo -n docker ps -a --filter "name=${CONTAINER_NAME}" || true
+          sudo -n docker logs --tail 120 "$CONTAINER_NAME" || true
           sudo -n ss -lntp | grep 8080 || true
           exit 1
           EOF
