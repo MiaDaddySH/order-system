@@ -133,6 +133,15 @@ jobs:
           if ss -lntp | grep -q ':8080 '; then
             echo "port 8080 is still occupied before docker run"
             ss -lntp | grep ':8080 ' || true
+            if sudo -n systemctl stop user-order-api >/dev/null 2>&1; then
+              echo "stopped legacy systemd service user-order-api to free port 8080"
+              sleep 2
+            fi
+          fi
+          if ss -lntp | grep -q ':8080 '; then
+            echo "port 8080 is occupied by a non-container process. please stop/disable legacy service manually."
+            ss -lntp | grep ':8080 ' || true
+            exit 1
           fi
           sudo -n docker run -d --name "$CONTAINER_NAME" --restart unless-stopped --env-file /opt/user-order-api/.env.prod -p 127.0.0.1:8080:8080 "$NEW_IMAGE" >/dev/null
           HEALTH_OK=0
