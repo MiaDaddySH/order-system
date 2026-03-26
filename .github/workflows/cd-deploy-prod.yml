@@ -124,6 +124,10 @@ jobs:
           fi
           PREV_IMAGE="$(sudo -n docker inspect --format='{{.Config.Image}}' "$CONTAINER_NAME" 2>/dev/null || true)"
           sudo -n docker load -i /tmp/user-order-api-image.tar >/dev/null
+          if grep -q '^DB_URL=jdbc:postgresql://127.0.0.1:' /opt/user-order-api/.env.prod; then
+            echo "DB_URL points to 127.0.0.1 in /opt/user-order-api/.env.prod. For Docker deployment, use host.docker.internal."
+            exit 1
+          fi
           OLD_PORT_CONTAINERS="$(sudo -n docker ps -q --filter publish=8080 || true)"
           if [ -n "$OLD_PORT_CONTAINERS" ]; then
             echo "removing existing containers exposing port 8080: $OLD_PORT_CONTAINERS"
@@ -143,7 +147,7 @@ jobs:
             ss -lntp | grep ':8080 ' || true
             exit 1
           fi
-          sudo -n docker run -d --name "$CONTAINER_NAME" --restart unless-stopped --env-file /opt/user-order-api/.env.prod -p 127.0.0.1:8080:8080 "$NEW_IMAGE" >/dev/null
+          sudo -n docker run -d --name "$CONTAINER_NAME" --restart unless-stopped --add-host host.docker.internal:host-gateway --env-file /opt/user-order-api/.env.prod -p 127.0.0.1:8080:8080 "$NEW_IMAGE" >/dev/null
           HEALTH_OK=0
           for i in $(seq 1 24); do
             if curl -fsS http://127.0.0.1:8080/actuator/health >/dev/null; then
@@ -159,7 +163,7 @@ jobs:
             SMOKE_STARTED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
             SMOKE_EMAIL="smoke_$(date +%s)@example.com"
             SMOKE_PASSWORD="SmokePass123"
-            curl -fsS -X POST "${BASE_URL}/users/register" -H "Content-Type: application/json" -d "{\"email\":\"${SMOKE_EMAIL}\",\"password\":\"${SMOKE_PASSWORD}\"}" >/dev/null
+            REGISTER_RESP="$(curl -fsS -X POST "${BASE_URL}/users/register" -H "Content-Type: application/json" -d "{\"email\":\"${SMOKE_EMAIL}\",\"password\":\"${SMOKE_PASSWORD}\"}")"
             LOGIN_RESP="$(curl -fsS -X POST "${BASE_URL}/users/login" -H "Content-Type: application/json" -d "{\"email\":\"${SMOKE_EMAIL}\",\"password\":\"${SMOKE_PASSWORD}\"}")"
             TOKEN="$(printf '%s' "$LOGIN_RESP" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')"
             AUTH_HEADER="Authorization: Bearer ${TOKEN}"
@@ -179,11 +183,14 @@ jobs:
             SMOKE_FINISHED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
             echo "smoke test failed, rolling back to previous image"
             echo "smoke_summary started_at=${SMOKE_STARTED_AT} finished_at=${SMOKE_FINISHED_AT} base_url=${BASE_URL} email=${SMOKE_EMAIL} status=${SMOKE_STATUS}"
+            echo "smoke_register_response=${REGISTER_RESP:-none}"
+            echo "smoke_login_response=${LOGIN_RESP:-none}"
+            echo "smoke_order_response=${ORDER_RESP:-none}"
           fi
           if [ -n "$PREV_IMAGE" ]; then
             echo "rolling back to previous image: ${PREV_IMAGE}"
             sudo -n docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
-            sudo -n docker run -d --name "$CONTAINER_NAME" --restart unless-stopped --env-file /opt/user-order-api/.env.prod -p 127.0.0.1:8080:8080 "$PREV_IMAGE" >/dev/null || true
+            sudo -n docker run -d --name "$CONTAINER_NAME" --restart unless-stopped --add-host host.docker.internal:host-gateway --env-file /opt/user-order-api/.env.prod -p 127.0.0.1:8080:8080 "$PREV_IMAGE" >/dev/null || true
           fi
           echo "deployment verification failed, collecting diagnostics"
           sudo -n docker ps -a --filter "name=${CONTAINER_NAME}" || true
