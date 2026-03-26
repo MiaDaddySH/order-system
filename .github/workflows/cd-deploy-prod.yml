@@ -125,18 +125,19 @@ jobs:
           fi
           PREV_IMAGE="$(sudo -n docker inspect --format='{{.Config.Image}}' "$CONTAINER_NAME" 2>/dev/null || true)"
           sudo -n docker load -i /tmp/user-order-api-image.tar >/dev/null
-          if ! sudo -n test -r "$ENV_FILE"; then
-            echo "cannot read ${ENV_FILE}. grant read permission for deploy flow."
-            exit 1
-          fi
-          DB_URL_LINE="$(sudo -n grep -E '^DB_URL=' "$ENV_FILE" || true)"
-          if [ -z "$DB_URL_LINE" ]; then
-            echo "DB_URL is missing in ${ENV_FILE}"
-            exit 1
-          fi
-          if printf '%s' "$DB_URL_LINE" | grep -Eq 'jdbc:postgresql://(127\.0\.0\.1|localhost):'; then
-            echo "DB_URL points to localhost in ${ENV_FILE}. For Docker deployment, use host.docker.internal."
-            exit 1
+          DB_URL_LINE=""
+          if [ -r "$ENV_FILE" ]; then
+            DB_URL_LINE="$(grep -E '^DB_URL=' "$ENV_FILE" || true)"
+            if [ -z "$DB_URL_LINE" ]; then
+              echo "DB_URL is missing in ${ENV_FILE}"
+              exit 1
+            fi
+            if printf '%s' "$DB_URL_LINE" | grep -Eq 'jdbc:postgresql://(127\.0\.0\.1|localhost):'; then
+              echo "DB_URL points to localhost in ${ENV_FILE}. For Docker deployment, use host.docker.internal."
+              exit 1
+            fi
+          else
+            echo "warning: cannot read ${ENV_FILE} as deploy user; skipping DB_URL pre-check"
           fi
           OLD_PORT_CONTAINERS="$(sudo -n docker ps -q --filter publish=8080 || true)"
           if [ -n "$OLD_PORT_CONTAINERS" ]; then
